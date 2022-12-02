@@ -1,5 +1,5 @@
-
 import os
+import custom_channel as channel
 
 
 class Node:
@@ -16,17 +16,55 @@ class Node:
     If request sent already (asked is True), we don’t send again. 
     When token comes, we set to asked to False. 
     pending_requests: True or False
-    Indicates that there is a hungry node on left. 
-    After using the resource we need to pass the token, i.e., move the token. Otherwise token can stay with us.     
+    Indicates that there is a hungry node on left.
+    After using the resource we need to pass the token, i.e., move the token. Otherwise, token can stay with us.
     """
-    def __init__(self, pid, ospid= os.getpid(), holder=None):
+
+    def __init__(
+        self, pid, cwNeighbourPid, ccwNeighbourPid, ospid=os.getpid(), holder=None
+    ):
         self.pid = pid
         self.ospid = ospid
         self.hungry = False
         self.using = False
-        self.holder = holder # self?
+        self.holder = holder  # self?
         self.asked = False
         self.pending_requests = False
+        self.ci = channel.Channel()
+        self.cwNeighbourPid = cwNeighbourPid
+        self.ccwNeighbourPid = ccwNeighbourPid
+
+        self.Incoming = self.ci.join(f"{str(pid)}-inc")
+
+        self.OutgoingToken = []
+        while len(self.OutgoingToken) == 0:
+            self.OutgoingToken = self.ci.subgroup(f"{str(ccwNeighbourPid)}-inc")
+
+        self.OutgoingRequest = []
+        while len(self.OutgoingRequest) == 0:
+            self.OutgoingRequest = self.ci.subgroup(f"{str(cwNeighbourPid)}-inc")
+        """
+        if True:
+            channelId = f"{str(cwNeighbourPid)}-{str(pid)}"
+            self.tokenIngress = self.ci.join(channelId)
+            # assert len(self.tokenIngress) == 1
+        if True:
+            channelId = f"{str(ccwNeighbourPid)}-{str(pid)}"
+            self.ReqIngress = self.ci.join(channelId)
+            # assert len(self.tokenIngress) == 1
+        if True:
+            channelId = f"{str(pid)}-{str(ccwNeighbourPid)}"
+            self.tokenEgress = []
+            while len(self.tokenEgress) == 0:
+                self.tokenEgress = self.ci.subgroup(channelId)
+            assert len(self.tokenEgress) == 1
+        if True:
+            channelId = f"{str(pid)}-{str(cwNeighbourPid)}"
+            self.ReqEgress = []
+            while len(self.ReqEgress) == 0:
+                self.ReqEgress = self.ci.subgroup(channelId)
+            assert len(self.ReqEgress) == 1
+        """
 
     def set_hungry(self):
         self.hungry = True
