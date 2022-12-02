@@ -104,5 +104,16 @@ class Node:
             # todo send token (CW)
             self.pending_requests = False
         else:
-            self.holder = self # we have token
-        
+            self.holder = self  # we have token
+
+    def run(self):
+        while True:
+            msg = self.ci.recvFromAny(self.Incoming)
+            sender_pid = msg[1]
+            msg = msg[2:]
+            if sender_pid == self.cwNeighbourPid:
+                # Token came in
+                pass
+            elif sender_pid == self.ccwNeighbourPid:
+                # Resource request came in
+                pass
