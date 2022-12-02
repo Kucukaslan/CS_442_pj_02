@@ -68,12 +68,13 @@ class Node:
 
     def set_hungry(self):
         self.hungry = True
-        if (self.holder is not self): # we don’t have token
-            if (not self.asked): # if not send req already
+        if self.holder is not self:  # we don’t have token
+            if not self.asked:  # if not send req already
                 # todo send request to right(CCW dir)
+                self.ci.sendTo(self.OutgoingRequest, self.pid + "ResReq")
                 self.asked = True
             # todo wait until (using == True)
-        else: #// we have token
+        else:  # // we have token
             self.using = True
             # todo update the DATAFILE and log it
             self.hungry = False
