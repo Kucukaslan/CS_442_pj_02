@@ -6,11 +6,13 @@ import sys
 from constants import Constants
 
 def main():
-    """ "
-    token.py NP DATAFILE DELTA TOTCOUNT LOGFILE MAXTIME
+    """ 
+    main.py NP DATAFILE DELTA TOTCOUNT LOGFILE MAXTIME
     """
     if len(sys.argv) != 7:
-        print("token.py NP DATAFILE DELTA TOTCOUNT LOGFILE MAXTIME")
+        print(f"Usage: python3 {os.path.basename(sys.argv[0])} <np> <datafile> <delta> <totcount> <logfile> <maxtime>")
+        print(f"Example:\n python3 {os.path.basename(sys.argv[0])} 5 DATAFILE 100 25 log.txt 1000")
+
         sys.exit(1)
 
     constants = Constants(
@@ -31,6 +33,8 @@ def main():
     assert constants.NP <= 20
     assert 2 <= constants.NP
     assert 1 <= constants.DELTA
+    assert constants.MAXTIME > 0
+
 
     chan = channel.Channel()
     chan.channel.flushall()
@@ -40,53 +44,31 @@ def main():
     for i in range(NP):
         pid = os.fork()
         if pid == 0:
-            node = Node(
-                pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i - 1) % NP), constants=constants
-            )
+            print(f"OS :: Child process {i} is started!")
+            if i == 0:
+                node = Node(pid=i, cwNeighbourPid=((i + 1) % NP), 
+                    ccwNeighbourPid=((i-1) % NP), constants=constants, holder=True
+                )
+            else:
+                node = Node(
+                    pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i-1) % NP), constants=constants
+                )
+            print(f"OS :: Calling node.run() for {i}")
             node.run()
-            print(f"OS :: Client process {i} is started!")
-        else:
-            processes.append(pid)
-
-
-main()
-
-
-def oldmain():
-    chan = channel.Channel()
-    chan.channel.flushall()
-
-    processes = []
-    pid = os.fork()
-    if pid == 0:
-        server = Server()
-        server.run()
-        print("OS :: Server process is done!")
-        os._exit(0)
-    else:
-        processes.append(pid)
-
-    for i in range(10):
-        pid = os.fork()
-        if pid == 0:
-            client = Client()
-            shutdown = i == 9
-            if shutdown:
-                time.sleep(1)
-            client.run(shutdown=shutdown)
-            print(f"OS :: Client process {i} is done!")
-            os._exit(0)
+            print(f"OS :: Child process {i} is finished!")
         else:
             processes.append(pid)
 
     while processes:
+        print(f"OS :: Waiting for child process {processes[0]}")
         pid, exit_code = os.wait()
         if pid > 0:
             processes.remove(pid)
+            print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
 
     print(
         "\n***************************************\n**** All child processes are done! ****\n***************************************"
     )
 
+main()
 
-# oldmain()

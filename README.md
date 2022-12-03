@@ -1,5 +1,14 @@
 # CS 442 Project 2
 
+## Running the project
+Make sure that redis is running by
+```redic-cli ping```
+
+The program is named `main.py`.
+Usage: python3 main.py <np> <datafile> <delta> <totcount> <logfile> <maxtime>
+Example:
+ python3 main.py 5 DATAFILE 100 25 log.txt 1000
+
 ## Version  Information
 
 * redis version = 6.2.6 (also tested with 5.0.3)
