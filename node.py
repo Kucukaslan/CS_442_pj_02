@@ -160,7 +160,7 @@ class Node:
             elif sender_pid == self.OutgoingToken[0]:
                 # Resource request came in
                 out = f"""Check ResReq? channelid(pid)
-                      from {sender_pid}({self.cwNeighbourPid})
+                      from {sender_pid}({self.ccwNeighbourPid})
                       to   {self.Incoming}({self.pid})
                       msg  {msg[0]}
                       """
