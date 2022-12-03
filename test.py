@@ -5,6 +5,7 @@ import time
 import sys
 from constants import Constants
 
+
 def main():
     """ "
     token.py NP DATAFILE DELTA TOTCOUNT LOGFILE MAXTIME
@@ -15,11 +16,11 @@ def main():
 
     constants = Constants(
         NP=int(sys.argv[1]),
-        DATAFILE = sys.argv[2],
-        DELTA = int(sys.argv[3]),
-        TOTCOUNT = int(sys.argv[4]),
-        LOGFILE = sys.argv[5],
-        MAXTIME = int(sys.argv[6])
+        DATAFILE=sys.argv[2],
+        DELTA=int(sys.argv[3]),
+        TOTCOUNT=int(sys.argv[4]),
+        LOGFILE=sys.argv[5],
+        MAXTIME=int(sys.argv[6]),
     )
 
     print(f"NP = {constants.NP}")
@@ -41,7 +42,10 @@ def main():
         pid = os.fork()
         if pid == 0:
             node = Node(
-                pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i - 1) % NP), constants=constants
+                pid=i,
+                cwNeighbourPid=((i + 1) % NP),
+                ccwNeighbourPid=((i - 1) % NP),
+                constants=constants,
             )
             node.run()
             print(f"OS :: Client process {i} is started!")
