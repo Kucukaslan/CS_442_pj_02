@@ -32,7 +32,6 @@ class Node:
         ospid=os.getpid(),
         holder=None,
     ):
-        random.seed(ospid)
         self.pid = pid
         self.ospid = ospid
         self.hungry = False
@@ -46,6 +45,7 @@ class Node:
         self.constants: Constants = constants
         self.write_count = 0
         self.start_time = time.time()
+        random.seed(self.start_time)
 
         self.Incoming = self.ci.join(f"{str(pid)}-inc")
 
