@@ -32,6 +32,7 @@ class Node:
         ospid=os.getpid(),
         holder=None,
     ):
+        random.seed(ospid)
         self.pid = pid
         self.ospid = ospid
         self.hungry = False
