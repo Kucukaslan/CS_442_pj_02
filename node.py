@@ -1,6 +1,8 @@
 import os
 import custom_channel as channel
-
+import random
+from constants import Constants
+import time
 
 class Node:
     """
@@ -21,8 +23,9 @@ class Node:
     """
 
     def __init__(
-        self, pid, cwNeighbourPid, ccwNeighbourPid, ospid=os.getpid(), holder=None
+        self, pid, cwNeighbourPid, ccwNeighbourPid, constants, ospid=os.getpid(), holder=None
     ):
+        random.seed(ospid)
         self.pid = pid
         self.ospid = ospid
         self.hungry = False
@@ -33,6 +36,9 @@ class Node:
         self.ci = channel.Channel()
         self.cwNeighbourPid = cwNeighbourPid
         self.ccwNeighbourPid = ccwNeighbourPid
+        self.constants: Constants = constants
+        self.write_count = 0
+        self.start_time = time.time()
 
         self.Incoming = self.ci.join(f"{str(pid)}-inc")
 
@@ -105,6 +111,9 @@ class Node:
             # todo update the DATAFILE and log it
             self.hungry = False
 
+    def send_token(self):
+        pass
+
     def request_token(self):
         if (self.holder is self) and (not self.using):
             0  # todo  send token (CW) // we send token
@@ -114,14 +123,30 @@ class Node:
                 # todo send request (CCW dir)
                 self.asked = True
 
+    def use_resource(self):
+        file = open(self.constants.DATAFILE, "r+")
+        lines = file.readlines[0]
+        cur_num = int(lines[0]) + self.constants.DELTA
+        n_updates = int(lines[1]) + 1
+        to_be_written = str(cur_num) + '\n' + str(n_updates)
+        file.write(to_be_written)
+        file.close()
+        self.write_count += 1
+        file = open(self.constants.LOGFILE, "a")
+        elapsed_time = time.time() - self.start_time
+        log_text = f"t={elapsed_time}, pid={self.pid}, ospid={self.ospid}, new={cur_num}, {n_updates}, count={self.write_count}\n"
+        file.write(log_text)
+        file.close()
+
+
     def receive_token(self):
         self.asked = False
         if self.hungry:  # if we asked
             self.using = True
             self.hungry = False
-            # todo will use resource
+            self.use_resource()
         else:  # pass token; left asked
-            # todo send token (CW)
+            self.send_token()
             self.pending_requests = False
 
     def release_resource(self):
@@ -131,6 +156,11 @@ class Node:
             self.pending_requests = False
         else:
             self.holder = self  # we have token
+        self.sleep()
+
+    def sleep(self):
+        sleep_time = random.randint(0, self.constants.MAXTIME)
+        time.sleep(sleep_time)
 
     def run(self):
         self.ci.sendTo(
