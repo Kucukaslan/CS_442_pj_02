@@ -134,20 +134,34 @@ class Node:
 
     def run(self):
         self.ci.sendTo(
-            self.OutgoingRequest, f"from {self.pid} to {self.cwNeighbourPid} ResReq"
+            self.OutgoingRequest,
+            f"from {self.Incoming}({self.pid}) to {self.OutgoingRequest[0]}({self.cwNeighbourPid}) ResReq",
         )
         self.ci.sendTo(
-            self.OutgoingToken, f"from {self.pid} to {self.ccwNeighbourPid} Token"
+            self.OutgoingToken,
+            f"from {self.Incoming}({self.pid}) to {self.OutgoingToken[0]}({self.ccwNeighbourPid}) Token",
         )
 
         while True:
             msg = self.ci.recvFromAny()
             sender_pid = msg[0]
             msg = msg[1:]
-            print(" ".join(["\n", str(sender_pid), "\n", str(msg), "\n"]))
+            # print(" ".join(["\n", str(sender_pid), "\n", str(msg), "\n"]))
             if sender_pid == self.OutgoingRequest[0]:
                 # Token came in
-                pass
+                out = f"""Check Token? channelid(pid)
+                      from {sender_pid}({self.cwNeighbourPid})
+                      to   {self.Incoming}({self.pid})
+                      msg  {msg[0]}
+                      """
+                print(out)
+
+                # print(" ".join(["\nToken?", str(sender_pid), "\n", str(msg), "\n"]))
             elif sender_pid == self.OutgoingToken[0]:
                 # Resource request came in
-                pass
+                out = f"""Check ResReq? channelid(pid)
+                      from {sender_pid}({self.cwNeighbourPid})
+                      to   {self.Incoming}({self.pid})
+                      msg  {msg[0]}
+                      """
+                print(out)
