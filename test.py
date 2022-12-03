@@ -3,7 +3,7 @@ import custom_channel as channel
 from node import Node
 import time
 import sys
-
+from constants import Constants
 
 def main():
     """ "
@@ -12,33 +12,36 @@ def main():
     if len(sys.argv) != 7:
         print("token.py NP DATAFILE DELTA TOTCOUNT LOGFILE MAXTIME")
         sys.exit(1)
-    NP = int(sys.argv[1])
-    DATAFILE = sys.argv[2]
-    DELTA = int(sys.argv[3])
-    TOTCOUNT = int(sys.argv[4])
-    LOGFILE = sys.argv[5]
-    MAXTIME = int(sys.argv[6])
 
-    print(f"NP = {NP}")
-    print(f"DATAFILE = {DATAFILE}")
-    print(f"DELTA = {DELTA}")
-    print(f"TOTCOUNT = {TOTCOUNT}")
-    print(f"LOGFILE = {LOGFILE}")
-    print(f"MAXTIME = {MAXTIME}")
-    assert NP <= 20
-    assert 2 <= NP
-    assert 1 <= DELTA
+    constants = Constants(
+        NP=int(sys.argv[1]),
+        DATAFILE = sys.argv[2],
+        DELTA = int(sys.argv[3]),
+        TOTCOUNT = int(sys.argv[4]),
+        LOGFILE = sys.argv[5],
+        MAXTIME = int(sys.argv[6])
+    )
+
+    print(f"NP = {constants.NP}")
+    print(f"DATAFILE = {constants.DATAFILE}")
+    print(f"DELTA = {constants.DELTA}")
+    print(f"TOTCOUNT = {constants.TOTCOUNT}")
+    print(f"LOGFILE = {constants.LOGFILE}")
+    print(f"MAXTIME = {constants.MAXTIME}")
+    assert constants.NP <= 20
+    assert 2 <= constants.NP
+    assert 1 <= constants.DELTA
 
     chan = channel.Channel()
     chan.channel.flushall()
 
     processes = []
-
+    NP = constants.NP
     for i in range(NP):
         pid = os.fork()
         if pid == 0:
             node = Node(
-                pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i - 1) % NP)
+                pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i - 1) % NP), constants=constants
             )
             node.run()
             print(f"OS :: Client process {i} is started!")
