@@ -44,27 +44,31 @@ class Node:
         while len(self.OutgoingRequest) == 0:
             self.OutgoingRequest = self.ci.subgroup(f"{str(cwNeighbourPid)}-inc")
         print(
-            "cwNeighbourPid ",
-            self.cwNeighbourPid,
-            "\n",
-            "pid ",
-            self.pid,
-            "\n",
-            "ccwNeighbourPid ",
-            self.ccwNeighbourPid,
-            "\n",
-            "Incoming",
-            self.Incoming,
-            "\n",
-            "OutgoingToken ",
-            self.OutgoingToken,
-            "\n",
-            "OutgoingRequest",
-            self.OutgoingRequest,
-            "\n",
+            " ".join(
+                [
+                    "\n",
+                    "cwNeighbourPid",
+                    str(self.cwNeighbourPid),
+                    "\n",
+                    "pid ",
+                    str(self.pid),
+                    "\n",
+                    "ccwNeighbourPid",
+                    str(self.ccwNeighbourPid),
+                    "\n",
+                    "Incoming",
+                    str(self.Incoming),
+                    "\n",
+                    "OutgoingToken",
+                    str(self.OutgoingToken),
+                    "\n",
+                    "OutgoingRequest",
+                    str(self.OutgoingRequest),
+                    "\n",
+                ]
+            )
         )
 
-        os._exit(0)
         """
         if True:
             channelId = f"{str(cwNeighbourPid)}-{str(pid)}"
@@ -129,10 +133,18 @@ class Node:
             self.holder = self  # we have token
 
     def run(self):
+        self.ci.sendTo(
+            self.OutgoingRequest, f"from {self.pid} to {self.cwNeighbourPid} ResReq"
+        )
+        self.ci.sendTo(
+            self.OutgoingToken, f"from {self.pid} to {self.ccwNeighbourPid} Token"
+        )
+
         while True:
             msg = self.ci.recvFromAny()
             sender_pid = msg[0]
             msg = msg[1:]
+            print(" ".join(["\n", str(sender_pid), "\n", str(msg), "\n"]))
             if sender_pid == self.OutgoingRequest[0]:
                 # Token came in
                 pass
