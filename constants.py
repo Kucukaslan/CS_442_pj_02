@@ -8,3 +8,4 @@ class Constants:
     TOTCOUNT: int
     LOGFILE: str
     MAXTIME: int
+    START_TIME: float = 0.0

@@ -42,15 +42,15 @@ class Node:
             self.asked = False
             self.pending_requests = False
 
-            self.ci = channel.Channel()
             self.cwNeighbourPid = cwNeighbourPid
             self.ccwNeighbourPid = ccwNeighbourPid
             self.constants: Constants = constants
             self.write_count = 0
             self.start_time = time.time()
 
-
-            self.Incoming = self.ci.join(f"{str(self.pid)}-inc")
+            self.ci = channel.Channel()
+            self.ci.join(f"{str(self.pid)}-inc")
+            self.Incoming = self.ci.subgroup(f"{str(self.pid)}-inc")
 
             self.OutgoingToken = []
             while len(self.OutgoingToken) == 0:
@@ -120,7 +120,6 @@ class Node:
         while True:
             
             # todo delete this
-            print("Listening from: ",self.Incoming,"\n")
             msg = self.ci.recvFrom(self.Incoming)
             print("The message: ",msg)
             # todo handle message
@@ -152,16 +151,21 @@ class Node:
                 self.use_resource()
                 self.hungry=False
                 self.using=False
-                # todo send token if there are pending requests
+                if self.pending_requests:
+                    self.pending_requests = False
+                    self.ci.sendTo(self.OutgoingToken, "TOKEN")
+                    print("Token sent to: ",self.OutgoingToken, self.ccwNeighbourPid)
             elif not self.asked:
                 self.asked=True
-                self.ci.sendTo(self.OutgoingRequest, "request")
+                self.ci.sendTo(self.OutgoingRequest, "REQUEST")
+                print(f"{self.pid} Sent request to: ",self.OutgoingRequest, self.cwNeighbourPid)
             # todo wait until using?
     
     def handle_token(self):
         """
         Handle the token
         """
+        print(f"{self.pid} received token from: ",self.cwNeighbourPid)
         with self.lock:
             self.holder = True
             self.asked = False
@@ -173,23 +177,32 @@ class Node:
             
             if self.pending_requests:
                 self.pending_requests = False
-                self.ci.sendTo(self.OutgoingRequest, "request")
+                self.ci.sendTo(self.OutgoingRequest, "REQUEST")
+                print(f"{self.pid} Sent request to: ",self.OutgoingRequest, self.cwNeighbourPid)
+
             # todo else:
-            #     self.ci.sendTo(self.OutgoingToken, "token")
+            #     self.ci.sendTo(self.OutgoingToken, "TOKEN")
 
     def handle_request(self):
         """
         Handle the request
         """
+        print(f"{self.pid} received request from: ",self.ccwNeighbourPid)
         with self.lock:
+            print(f"{self.pid} is handling request from: holder:{self.holder}",self.ccwNeighbourPid)
             if self.holder:
                 self.holder = False
-                self.ci.sendTo(self.OutgoingToken, "token")
+                self.ci.sendTo(self.OutgoingToken, "TOKEN")
+                print(f"{self.pid} Sent token to: ",self.OutgoingToken, self.ccwNeighbourPid)
             else:
                 self.pending_requests = True
                 if not self.asked:
+                    print(f"{self.pid} Will send request to: ",self.OutgoingRequest, self.cwNeighbourPid)
+                    self.ci.sendTo(self.OutgoingRequest, "REQUEST")
                     self.asked = True
-                    self.ci.sendTo(self.OutgoingRequest, "request")
+                    print(f"{self.pid} Sent request to: ",self.OutgoingRequest, self.cwNeighbourPid)
+                else:
+                    print(f"{self.pid} already asked for token")
 
 
 
@@ -214,7 +227,7 @@ class Node:
     # def send_token(self):
     #     with self.lock:     
     #         self.holder = False
-    #         self.ci.sendTo(self.OutgoingToken, "Token")
+    #         self.ci.sendTo(self.OutgoingToken, "TOKEN")
     #         pass
 
 
@@ -233,33 +246,37 @@ class Node:
     # DO NOT LOCK, THE CALLER SHOULD LOCK
     def use_resource(self):
 
-        file = open(self.constants.DATAFILE, "r+")
+        file = open(self.constants.DATAFILE, "r")
         lines = file.readlines()
+        file.close()
         if len(lines) == 0:
-            lines = [0]
+            lines = [str(self.constants.DELTA*self.write_count)]
+            print("No data was found in file, writing: ", lines[0])
         cur_num = int(lines[0]) + self.constants.DELTA
-        n_updates = 1
+        n_updates = self.write_count
         if len(lines) > 1:
+            print("defaulting n_updates: ", n_updates)
             n_updates = int(lines[1]) + 1
         to_be_written = str(cur_num) + '\n' + str(n_updates)
         if n_updates < self.constants.TOTCOUNT:
+            file = open(self.constants.DATAFILE, "w")
             file.write(to_be_written)
+            file.close()
         else:
             # graceful exit
             print("Node ", self.pid, " is exiting")
-            print("Max number reached")
+            print("Max number reached, sending token to", self.OutgoingToken, self.ccwNeighbourPid)
             # send token to ccw neighbour
             self.ci.sendTo(self.OutgoingToken, "TOKEN")
             sys.exit(0)
 
-        file.close()
-
         self.write_count += 1
         file = open(self.constants.LOGFILE, "a")
-        elapsed_time = time.time() - self.start_time
+        elapsed_time = (time.monotonic_ns() / 1000000) - self.constants.START_TIME 
         log_text = f"t={elapsed_time}, pid={self.pid}, ospid={self.ospid}, new={cur_num}, {n_updates}, count={self.write_count}\n"
         file.write(log_text)
         file.close()
+        print(f"-- {self.pid} ---\n", to_be_written, "\n", log_text, "\n")
 
     # def receive_token(self):
     #     with self.lock:

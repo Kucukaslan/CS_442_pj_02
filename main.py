@@ -21,7 +21,8 @@ def main():
         DELTA = int(sys.argv[3]),
         TOTCOUNT = int(sys.argv[4]),
         LOGFILE = sys.argv[5],
-        MAXTIME = int(sys.argv[6])
+        MAXTIME = int(sys.argv[6]),
+        START_TIME = time.monotonic_ns() / 1000000
     )
 
     print(f"NP = {constants.NP}")
@@ -45,14 +46,12 @@ def main():
         pid = os.fork()
         if pid == 0:
            # print(f"OS :: Child process {i} is started!")
+            holder = False
             if i == 0:
-                node = Node(pid=i, cwNeighbourPid=((i + 1) % NP), 
-                    ccwNeighbourPid=((i-1) % NP), constants=constants, holder=True
-                )
-            else:
-                node = Node(
-                    pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i-1) % NP), constants=constants
-                )
+                holder=True
+            node = Node(
+                pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i-1) % NP), constants=constants, holder=holder
+            )
             print(f"OS :: Calling node.run() for {i}")
             node.run()
             print(f"OS :: Child process {i} is finished!")
