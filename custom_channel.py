@@ -57,9 +57,15 @@ class Channel:
 
     def recvFrom(self, senderSet, timeout=0):
         caller = self.find_caller()
-        for i in senderSet: 
-            assert self.is_member('members', i), f'{i} is not a member!'
-            xchan = [self.serialize(f'{str(i)}-{str(caller)}') for i in senderSet]
+        # if senderSet is a list iterate, else just use the single sender
+        if isinstance(senderSet, list):
+            for x in senderSet: 
+                i = int(x)
+                assert self.is_member('members', x), f'{x} is not a member (sender set was: {senderSet})!'
+                xchan = [self.serialize(f'{str(i)}-{str(caller)}') for i in senderSet]
+        else:
+            assert self.is_member('members', senderSet), f'{senderSet} is not a member (sender set was: {senderSet})!'
+            xchan = [self.serialize(f'{str(senderSet)}-{str(caller)}')]
         msg = self.channel.blpop(xchan, timeout)
         if msg:
             sender = self.deserialize(msg[0]).split('-')[0]
