@@ -13,6 +13,8 @@ rd:
 	redis-cli flushall
 	redis-cli ping
 k:
+	echo 0 > DATAFILE
+	echo '' > LOGFILE
 	ps aux | awk '/main.py/ {print $$2}'  | xargs kill
 	redis-cli flushall sync
 

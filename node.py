@@ -1,5 +1,5 @@
 import os
-import sys,multiprocessing, signal
+import sys, signal
 from  threading import Lock,RLock, Thread #.Lock as Lock
 import custom_channel as channel
 import random
@@ -52,20 +52,9 @@ class Node:
         self.start_time = time.time()
 
         self.ch = channel.Channel()
-        self.ch.join(pid=self.pid, ospid=self.ospid, predecessorId=self.predecessor, successorId=self.successor)
+        self.ch.join(pid=self.pid, ospid=self.ospid)
 
-        msg =    " ".join(
-                [
-                    "\nA node is initialized with: ",
-                    "predecessor",
-                    str(self.predecessor),
-                    "pid ",
-                    str(self.pid),
-                    "successor",
-                    str(self.successor)
-                ]
-            )
-        print(msg)
+        print(f"A node is initialized with: predecessor {self.predecessor}, pid {self.pid}, successor {self.successor}")
 
     def run(self):
         """
@@ -84,11 +73,6 @@ class Node:
         token_thread.start()
         sleep_thread.start()
 
-        
-        # todo check should terminate the process
-        #self.listen()
-        # todo    listen_thread.join()
-        #       todo wait sleep and kill listen thread
         sleep_thread.join()
         sys.exit(0)
 
@@ -98,7 +82,7 @@ class Node:
         """
     
         while True:
-            msg = self.ch.recvFrom(sender_pid=self.successor, receiver_pid=self.pid)
+            msg = self.ch.recvFrom(sender_pid=self.successor)
             if msg is not None:
                 print(f"{self.successor}-{self.pid} The message:",msg)
 
@@ -109,10 +93,16 @@ class Node:
         listen for incoming tokens 
         """
         while True:
-            msg = self.ch.recvFrom(sender_pid=self.predecessor, receiver_pid=self.pid)
+            msg = self.ch.recvFrom(sender_pid=self.predecessor)
             if msg is not None:
                 print(f"{self.predecessor}-{self.pid} The message:",msg)
-            self.handle_token()
+                if msg[1] == "TERMINATE":
+                    print(f"{self.pid} ({self.ospid}) received TERMINATE from {self.predecessor}")
+                    self.ch.sendTo(receiver_pid=self.successor, message="TERMINATE")
+                    os.kill(self.ospid, signal.SIGTERM)
+                else:
+                    self.handle_token()
+                
                 
     def start_sleeping(self):
         """
@@ -134,16 +124,16 @@ class Node:
                 self.use_resource()
                 self.hungry=False
                 self.using=False
-                print(f"{self.pid} used token, pending: {self.pending_requests}")
+                print(f"{self.pid} ({self.ospid}) used token, pending: {self.pending_requests}")
                 if self.pending_requests:
                     self.pending_requests = False
-                    print(f"{self.pid} will send token to: ",self.successor)
-                    self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
-                    print(f"{self.pid} sent token to: ",self.successor)
-                    self.holder = False
+                    print(f"{self.pid} ({self.ospid}) will send token to: ",self.successor)
+                    self.holder=False
+                    self.ch.sendTo( receiver_pid=self.successor, message="TOKEN")
+                    print(f"{self.pid} ({self.ospid}) sent token to: ",self.successor)
             elif not self.asked:
-                self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.predecessor, message="REQUEST")
-                print(f"{self.pid} sent request to: ",self.predecessor)
+                self.ch.sendTo( receiver_pid=self.predecessor, message="REQUEST")
+                print(f"{self.pid} ({self.ospid}) sent request to: ",self.predecessor)
                 self.asked=True
             # todo wait until using?
     
@@ -151,7 +141,7 @@ class Node:
         """
         Handle the token
         """
-        print(f"{self.pid} received token from: ",self.predecessor)
+        print(f"{self.pid} ({self.ospid}) received token from: ",self.predecessor)
         with self.lock:
             self.holder = True
             self.asked = False
@@ -162,36 +152,38 @@ class Node:
                 self.using=False
             else:
                 self.pending_requests = False
-                self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
-                print(f"{self.pid} Sent token to: ",self.successor)
+                self.holder=False
+                self.ch.sendTo( receiver_pid=self.successor, message="TOKEN")
+                print(f"{self.pid} ({self.ospid}) Sent token to: ",self.successor)
 
 
 
             if self.pending_requests:
                 self.pending_requests = False
-                self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
-                print(f"{self.pid} Sent token to: ",self.successor)
+                self.holder=False
+                self.ch.sendTo( receiver_pid=self.successor, message="TOKEN")
+                print(f"{self.pid} ({self.ospid}) Sent token to: ",self.successor)
 
     def handle_request(self):
         """
         Handle the request
         """
-        print(f"{self.pid} received request from: ",self.successor)
+        print(f"{self.pid} ({self.ospid}) received request from: ",self.successor)
         with self.lock:
-            print(f"{self.pid}, holder:{self.holder}, is handling request from: ",self.successor)
+            print(f"{self.pid} ({self.ospid}), holder:{self.holder}, is handling request from: ",self.successor)
             if self.holder:
-                self.ch.sendTo(sender_pid=self.pid, receiver_pid= self.successor, message="TOKEN")
-                self.holder = False
-                print(f"{self.pid} Sent token to: ", self.successor)
+                self.holder=False
+                self.ch.sendTo( receiver_pid= self.successor, message="TOKEN")
+                print(f"{self.pid} ({self.ospid}) Sent token to: ", self.successor)
             else:
                 self.pending_requests = True
                 if not self.asked:
-                    print(f"{self.pid} Will send request to: ", self.predecessor)
-                    self.ch.sendTo(sender_pid=self.pid,receiver_pid=self.predecessor, message="REQUEST")
+                    print(f"{self.pid} ({self.ospid}) Will send request to: ", self.predecessor)
+                    self.ch.sendTo(receiver_pid=self.predecessor, message="REQUEST")
                     self.asked = True
-                    print(f"{self.pid} Sent request to: ", self.predecessor)
+                    print(f"{self.pid} ({self.ospid}) Sent request to: ", self.predecessor)
                 else:
-                    print(f"{self.pid} already asked for token")
+                    print(f"{self.pid} ({self.ospid}) already asked for token")
 
 
     # DO NOT LOCK, THE CALLER SHOULD LOCK
@@ -217,7 +209,8 @@ class Node:
             print("Node ", self.pid, " is exiting")
             print(f"Max number reached by {self.pid}, sending token to", self.successor)
             # send token to successor
-            self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
+            self.holder = False
+            self.ch.sendTo( receiver_pid=self.successor, message="TERMINATE")
             # kill the process
             os.kill(os.getpid(), signal.SIGKILL)
 
