@@ -1,5 +1,5 @@
 import os
-import sys,multiprocessing
+import sys,multiprocessing, signal
 from  threading import Lock,RLock, Thread #.Lock as Lock
 import custom_channel as channel
 import random
@@ -54,18 +54,16 @@ class Node:
 
             self.ci = channel.Channel()
             self.ci.join(f"{str(self.pid)}-inc")
-            # It seems to me that directions are fkced up
+
             self.Incoming = self.ci.subgroup(f"{str(self.pid)}-inc")
+            time.sleep(1)
 
             self.OutgoingToken = []
-            while len(self.OutgoingToken) == 0:
-                self.OutgoingToken = self.ci.subgroup(f"{str(successor)}-inc")
-                time.sleep(1)
-
             self.OutgoingRequest = []
-            while len(self.OutgoingRequest) == 0:
+            while len(self.OutgoingToken) == 0 or len(self.OutgoingRequest) == 0:
+                self.OutgoingToken = self.ci.subgroup(f"{str(successor)}-inc")
                 self.OutgoingRequest = self.ci.subgroup(f"{str(predecessor)}-inc")
-        
+
         
         msg =    " ".join(
                 [
@@ -85,6 +83,9 @@ class Node:
                 ]
             )
         print(msg)
+        time.sleep(1)
+
+        self.run()
 
     def run(self):
         """
@@ -126,7 +127,7 @@ class Node:
         while True:
             print(f"{self.pid} is listening for messages to {self.Incoming}")
             # todo delete this
-            msg = self.ci.recvFrom(self.Incoming, timeout=1)
+            msg = self.ci.recvFrom(self.OutgoingToken+self.OutgoingRequest)
             if msg is not None:
                 print("The message: ",msg) 
                 if msg[1] == "TOKEN":
@@ -182,7 +183,12 @@ class Node:
                 self.use_resource()
                 self.hungry=False
                 self.using=False
-            
+            else:
+                self.pending_requests = False
+                self.ci.sendTo(self.OutgoingToken, "TOKEN")
+                print(f"{self.pid} Sent request to: ",self.OutgoingToken, self.OutgoingToken)
+
+
             if self.pending_requests:
                 self.pending_requests = False
                 self.ci.sendTo(self.OutgoingToken, "TOKEN")
@@ -254,7 +260,7 @@ class Node:
         file = open(self.constants.DATAFILE, "r")
         lines = file.readlines()
         file.close()
-        if len(lines) == 0 or not lines[0].isnumeric():
+        if len(lines) == 0 or lines[0] == "\n":
             lines = [str(self.constants.DELTA*self.write_count)]
             print("No data was found in file, writing: ", lines[0])
         cur_num = int(lines[0]) + self.constants.DELTA
@@ -273,9 +279,10 @@ class Node:
             print("Max number reached, sending token to", self.OutgoingToken, self.successor)
             # send token to ccw neighbour
             self.ci.sendTo(self.OutgoingToken, "TOKEN")
-            print("Node ", self.pid, " is exiting, sent token to", self.OutgoingToken, self.successor)
-            #sys.exit(0)
-            multiprocessing.current_process().terminate()
+            print("Node ", self.pid, " is exiting, sent token to", self.OutgoingToken, self.successor)  
+            os.kill(os.getpid(), signal.SIGKILL)
+
+            #multiprocessing.current_process().terminate()
 
         self.write_count += 1
         file = open(self.constants.LOGFILE, "a")
@@ -284,64 +291,3 @@ class Node:
         file.write(log_text)
         file.close()
         print(f"-- {self.pid} ---\n", to_be_written, "\n", log_text, "\n")
-
-    # def receive_token(self):
-    #     with self.lock:
-    #         self.asked = False
-    #         if self.hungry:  # if we asked
-    #             self.using = True
-    #             self.hungry = False
-    #             self.use_resource()
-    #             self.release_resource()
-    #         else:  # pass token; left asked
-    #             self.pending_requests = False
-    #             self.send_token()
-
-
-    # def release_resource(self):
-    #     self.using = False
-    #     if self.pending_requests:
-    #         self.send_token()
-    #         self.holder=False
-    #         self.pending_requests = False
-    #     else:
-    #         self.holder = True  # we have token
-
-    # def sleep(self):
-    #     sleep_time = random.randint(0, self.constants.MAXTIME)
-    #     print(f"pid {self.pid} will sleep for {sleep_time} seconds")
-    #     time.sleep(sleep_time/1000)
-    #     print(f"pid {self.pid} started requesting token")
-    #     self.set_hungry()
-
-    # def run(self):
-    #     thread = Thread(target = self.sleep)
-    #     thread.start()
-    
-    #     while True:
-    #         msg = self.ci.recvFromAny()
-    #         sender_pid = msg[0]
-    #         msg = msg[1:]
-    #         # print(" ".join(["\n", str(sender_pid), "\n", str(msg), "\n"]))
-    #         if msg[0] == "Token":
-    #             # Token came in
-    #             out = f"""Check Token? channelid(pid)
-    #                   from {sender_pid}({self.predecessor})
-    #                   to [me]   {self.Incoming}({self.pid})
-    #                   msg  {msg[0]}
-    #                   """
-    #             print(out)
-    #         elif msg[0] == "ResReq":
-    #             # ResReq came in
-    #             out = f"""Check ResReq? channelid(pid)
-    #                   from {sender_pid}({self.successor})
-    #                   to [me]   {self.Incoming}({self.pid})
-    #                   msg  {msg[0]}
-    #                   """
-    #             print(out)
-    #         else:
-    #             print("Error: Unknown message type")
-    #             print(msg)
-                
-    #     thread.join()
-    #     return

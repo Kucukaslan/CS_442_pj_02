@@ -53,7 +53,7 @@ def main():
                 pid=i, predecessor=((i - 1) % NP), successor=((i+1) % NP), constants=constants, holder=holder
             )
             print(f"OS :: Calling node.run() for {i}")
-            node.run()
+            #node.run()
             print(f"OS :: Child process {i} is finished!")
         else:
             processes.append(pid)
