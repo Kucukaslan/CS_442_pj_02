@@ -11,14 +11,17 @@ class Channel:
         self.nBits     = nBits
         self.MAXPROC   = pow(2, nBits)
 
-    def join(self, subgroup):
+    def join(self, pid, ospid, predecessorId, successorId):
         members = self.channel.smembers('members')
-        newpid = random.choice(list(set([str(i) for i in range(self.MAXPROC)]) - members))
-        s_pid = self.serialize(newpid)
-        self.channel.sadd('members', s_pid)
-        self.channel.sadd(subgroup, s_pid)
-        self.bind(str(newpid))
-        return str(newpid)
+
+        self.pid = pid
+        self.ospid = ospid
+        self.predecessorId = predecessorId
+        self.successorId = successorId
+
+        self.channel.sadd('members', self.pid)
+        self.bind(str(self.pid))
+        return str(self.pid)
 	
     def bind(self, pid):
         ospid = os.getpid()
@@ -30,11 +33,8 @@ class Channel:
     def subgroup(self, subgroup):
         return [self.deserialize(pid) for pid in list(self.channel.smembers(subgroup))]
 
-    def sendTo(self, destinationSet, message):
-        caller = self.find_caller()
-        for i in destinationSet: 
-            assert self.is_member('members', i), f'{i} is not a member!'
-            self.sendToHelper(caller, i, message)
+    def sendTo(self, sender_pid, receiver_pid, message):
+        self.sendToHelper(sender_pid, receiver_pid, message)
 
     def sendToAll(self, message):
         caller = self.find_caller()
@@ -55,17 +55,8 @@ class Channel:
             message = self.deserialize(msg[1])
             return sender, message
 
-    def recvFrom(self, senderSet, timeout=0):
-        caller = self.find_caller()
-        # if senderSet is a list iterate, else just use the single sender
-        if isinstance(senderSet, list):
-            for x in senderSet: 
-                i = int(x)
-                assert self.is_member('members', x), f'{x} is not a member (sender set was: {senderSet})!'
-                xchan = [self.serialize(f'{str(i)}-{str(caller)}') for i in senderSet]
-        else:
-            assert self.is_member('members', senderSet), f'{senderSet} is not a member (sender set was: {senderSet})!'
-            xchan = [self.serialize(f'{str(senderSet)}-{str(caller)}')]
+    def recvFrom(self, sender_pid, receiver_pid, timeout=0):
+        xchan = [self.serialize(f'{str(sender_pid)}-{str(receiver_pid)}')]
         msg = self.channel.blpop(xchan, timeout)
         if msg:
             sender = self.deserialize(msg[0]).split('-')[0]
