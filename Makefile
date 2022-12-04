@@ -14,6 +14,8 @@ rd:
 	redis-cli ping
 k:
 	ps aux | awk '/main.py/ {print $$2}'  | xargs kill
+	redis-cli flushall sync
+
 
 
 
