@@ -4,19 +4,21 @@
 Make sure that redis is running by
 ```redic-cli ping```
 
-The program is named `main.py`.
-Usage: python3 main.py <np> <datafile> <delta> <totcount> <logfile> <maxtime>
-Example:
+The program is named `main.py`.  
+Usage: python3 main.py <np> <datafile> <delta> <totcount> <logfile> <maxtime>  
+Example:  
+```bash
  python3 main.py 5 DATAFILE 100 25 LOGFILE 1000
-
+```
 We also provided a makefile that you can use both running and cleaning the processes.
-We `strongly` suggest you to call `make k` before running the program to clean
-the remnants from other executions that improperly killed.
+We **strongly** suggest you to call `make k` before running the program to clean
+the remnants from other executions that improperly killed.  
 To kill all the processes created by current and previous executions simply call
 ```bash
 make k
 ```
 which also cleans the redis DB to prepare a clean DB for next execution.
+Then you can run program by `make` call or running the program as previously described.
 
 ## Version  Information
 

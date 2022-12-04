@@ -212,7 +212,7 @@ class Node:
         self.write_count += 1
         file = open(self.constants.LOGFILE, "a")
         elapsed_time = (time.monotonic_ns() / 1000000) - self.constants.START_TIME 
-        log_text = f"t={elapsed_time}, pid={self.pid + 1}, ospid={self.ospid}, new={cur_num}, {n_updates}, count={self.write_count}\n"
+        log_text = f"t={int(elapsed_time):07d}ms, pid={self.pid + 1}, ospid={self.ospid}, new={cur_num}, {n_updates}, count={self.write_count}\n"
         file.write(log_text)
         file.close()
         # print(f"-- {self.pid} ---\n", to_be_written, "\n", log_text, "\n")
