@@ -1,8 +1,8 @@
 run:
 	echo 0 > DATAFILE
-	echo "" > DATAFILE
+	echo '' > LOGFILE
 
-	python3 ./main.py 7 DATAFILE 10 20 LOGFILE 5000
+	python3 ./main.py 7 DATAFILE 100 25 LOGFILE 5000
 tar:
 	tar czf  ./21901779.tar.gz *akefile *.py *.md  *.pdf
 

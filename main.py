@@ -31,6 +31,7 @@ def main():
     print(f"TOTCOUNT = {constants.TOTCOUNT}")
     print(f"LOGFILE = {constants.LOGFILE}")
     print(f"MAXTIME = {constants.MAXTIME}")
+    print(f"START_TIME = {constants.START_TIME}")
     assert constants.NP <= 20
     assert 2 <= constants.NP
     assert 1 <= constants.DELTA
@@ -38,7 +39,7 @@ def main():
 
 
     chan = channel.Channel()
-    chan.channel.flushall()
+    chan.channel.flushall(asynchronous=False)
 
     processes = []
     NP = constants.NP
@@ -53,7 +54,7 @@ def main():
                 pid=i, predecessor=((i - 1) % NP), successor=((i+1) % NP), constants=constants, holder=holder
             )
             print(f"OS :: Calling node.run() for {i}")
-            #node.run()
+            node.run()
             print(f"OS :: Child process {i} is finished!")
         else:
             processes.append(pid)

@@ -37,34 +37,23 @@ class Node:
         random.seed(pid)
         self.lock = RLock()
 
-        with self.lock:
-            self.pid = pid
-            self.ospid = os.getpid()
-            self.hungry = False
-            self.using = False
-            self.holder = holder 
-            self.asked = False
-            self.pending_requests = False
+        self.pid = pid
+        self.ospid = os.getpid()
+        self.hungry = False
+        self.using = False
+        self.holder = holder 
+        self.asked = False
+        self.pending_requests = False
 
-            self.predecessor = predecessor
-            self.successor = successor
-            self.constants: Constants = constants
-            self.write_count = 0
-            self.start_time = time.time()
+        self.predecessor = predecessor
+        self.successor = successor
+        self.constants: Constants = constants
+        self.write_count = 0
+        self.start_time = time.time()
 
-            self.ci = channel.Channel()
-            self.ci.join(f"{str(self.pid)}-inc")
+        self.ch = channel.Channel()
+        self.ch.join(pid=self.pid, ospid=self.ospid, predecessorId=self.predecessor, successorId=self.successor)
 
-            self.Incoming = self.ci.subgroup(f"{str(self.pid)}-inc")
-            time.sleep(1)
-
-            self.OutgoingToken = []
-            self.OutgoingRequest = []
-            while len(self.OutgoingToken) == 0 or len(self.OutgoingRequest) == 0:
-                self.OutgoingToken = self.ci.subgroup(f"{str(successor)}-inc")
-                self.OutgoingRequest = self.ci.subgroup(f"{str(predecessor)}-inc")
-
-        
         msg =    " ".join(
                 [
                     "\nA node is initialized with: ",
@@ -73,72 +62,59 @@ class Node:
                     "pid ",
                     str(self.pid),
                     "successor",
-                    str(self.successor),
-                    "Incoming",
-                    str(self.Incoming),
-                    "OutgoingToken",
-                    str(self.OutgoingToken),
-                    "OutgoingRequest",
-                    str(self.OutgoingRequest),
+                    str(self.successor)
                 ]
             )
         print(msg)
-        time.sleep(1)
-
-        self.run()
 
     def run(self):
         """
         The Node will start ordinary execution.
-        It will create two threads:
-            1. A thread to listen for incoming messages
-            2. A thread for waiting/sleeping for a random time before sending a request
+        It will create three threads:
+            1 & 2. Two  thread to listen for requests and tokens
+            3. A thread for waiting/sleeping for a random time before sending a request
         """
         print(f"Node {self.pid} is starting")
         self.start_time = time.time()
-        listen_thread = self.start_listening()
-        sleep_thread = self.start_sleeping()
+        request_thread = Thread(target=self.start_listening_requests, daemon=True)
+        token_thread = Thread(target=self.start_listening_tokens, daemon=True)
+        sleep_thread = Thread(target=self.start_sleeping, daemon=True)
+        
+        request_thread.start()
+        token_thread.start()
+        sleep_thread.start()
+
+        
+        # todo check should terminate the process
         #self.listen()
-# todo    listen_thread.join()
-#       todo wait sleep and kill listen thread
+        # todo    listen_thread.join()
+        #       todo wait sleep and kill listen thread
         sleep_thread.join()
         sys.exit(0)
 
-    def start_listening(self):
+    def start_listening_requests(self):
         """
-        Start a thread to listen for incoming messages
+        listen for incoming requests 
         """
-        t = Thread(target=self.listen)
-        t.start()
-        return t
+    
+        while True:
+            msg = self.ch.recvFrom(sender_pid=self.successor, receiver_pid=self.pid)
+            if msg is not None:
+                print(f"{self.successor}-{self.pid} The message:",msg)
 
-    def start_sleeping(self):
-        """
-        Start a thread to sleep for a random time before accessing the resource
-        """
-        t = Thread(target=self.sleep)
-        t.start()
-        return t
+            self.handle_request() 
 
-    def listen(self):
+    def start_listening_tokens(self):
         """
-        Listen for incoming messages
+        listen for incoming tokens 
         """
         while True:
-            print(f"{self.pid} is listening for messages to {self.Incoming}")
-            # todo delete this
-            msg = self.ci.recvFrom(self.OutgoingToken+self.OutgoingRequest)
+            msg = self.ch.recvFrom(sender_pid=self.predecessor, receiver_pid=self.pid)
             if msg is not None:
-                print("The message: ",msg) 
-                if msg[1] == "TOKEN":
-                    self.handle_token()
-                elif msg[1] == "REQUEST":
-                    self.handle_request()
-                else:
-                    print("Unknown message: ", msg)
-            
-    
-    def sleep(self):
+                print(f"{self.predecessor}-{self.pid} The message:",msg)
+            self.handle_token()
+                
+    def start_sleeping(self):
         """
         Sleep for a random time up to self.MAXTIME ms before accessing the resource
         """
@@ -161,13 +137,14 @@ class Node:
                 print(f"{self.pid} used token, pending: {self.pending_requests}")
                 if self.pending_requests:
                     self.pending_requests = False
-                    print(f"{self.pid} will send token to: ",self.OutgoingToken, self.successor)
-                    self.ci.sendTo(self.OutgoingToken, "TOKEN")
-                    print("Token sent to: ",self.OutgoingToken, self.successor)
+                    print(f"{self.pid} will send token to: ",self.successor)
+                    self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
+                    print(f"{self.pid} sent token to: ",self.successor)
+                    self.holder = False
             elif not self.asked:
+                self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.predecessor, message="REQUEST")
+                print(f"{self.pid} sent request to: ",self.predecessor)
                 self.asked=True
-                self.ci.sendTo(self.OutgoingRequest, "REQUEST")
-                print(f"{self.pid} Sent request to: ",self.OutgoingRequest, self.predecessor)
             # todo wait until using?
     
     def handle_token(self):
@@ -185,15 +162,15 @@ class Node:
                 self.using=False
             else:
                 self.pending_requests = False
-                self.ci.sendTo(self.OutgoingToken, "TOKEN")
-                print(f"{self.pid} Sent request to: ",self.OutgoingToken, self.OutgoingToken)
+                self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
+                print(f"{self.pid} Sent token to: ",self.successor)
+
 
 
             if self.pending_requests:
                 self.pending_requests = False
-                self.ci.sendTo(self.OutgoingToken, "TOKEN")
-                print(f"{self.pid} Sent request to: ",self.OutgoingToken, self.OutgoingToken)
-
+                self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
+                print(f"{self.pid} Sent token to: ",self.successor)
 
     def handle_request(self):
         """
@@ -201,59 +178,21 @@ class Node:
         """
         print(f"{self.pid} received request from: ",self.successor)
         with self.lock:
-            print(f"{self.pid} is handling request from: holder:{self.holder}",self.successor)
+            print(f"{self.pid}, holder:{self.holder}, is handling request from: ",self.successor)
             if self.holder:
+                self.ch.sendTo(sender_pid=self.pid, receiver_pid= self.successor, message="TOKEN")
                 self.holder = False
-                self.ci.sendTo(self.OutgoingToken, "TOKEN")
-                print(f"{self.pid} Sent token to: ",self.OutgoingToken, self.successor)
+                print(f"{self.pid} Sent token to: ", self.successor)
             else:
                 self.pending_requests = True
                 if not self.asked:
-                    print(f"{self.pid} Will send request to: ",self.OutgoingRequest, self.predecessor)
-                    self.ci.sendTo(self.OutgoingRequest, "REQUEST")
+                    print(f"{self.pid} Will send request to: ", self.predecessor)
+                    self.ch.sendTo(sender_pid=self.pid,receiver_pid=self.predecessor, message="REQUEST")
                     self.asked = True
-                    print(f"{self.pid} Sent request to: ",self.OutgoingRequest, self.predecessor)
+                    print(f"{self.pid} Sent request to: ", self.predecessor)
                 else:
                     print(f"{self.pid} already asked for token")
 
-
-
-
-    # def set_hungry(self):
-    #     with self.lock:
-    #         self.hungry = True
-        
-    #         if self.holder :  # // we have token
-    #             self.using = True
-    #             self.use_resource()
-    #             self.release_resource()
-    #             self.hungry = False
-    #             self.send_token()
-    #         else:  # we don’t have token
-    #             if not self.asked:  # if not send req already
-    #                 self.ci.sendTo(self.OutgoingRequest, "ResReq")
-    #                 self.asked = True
-    #             # todo wait until (using == True)
-
-    # # DO NOT LOCK THE CALLER SHOULD LOCK
-    # def send_token(self):
-    #     with self.lock:     
-    #         self.holder = False
-    #         self.ci.sendTo(self.OutgoingToken, "TOKEN")
-    #         pass
-
-
-    # def request_token(self):
-    #     """
-    #     When a request is received
-    #     """
-    #     if (self.holder is True) and (not self.using):
-    #         self.send_token()
-    #     else:  # (self.holder != self) or (self.using)
-    #         self.pending_requests = True
-    #         if (not self.holder ) and (not self.asked):
-    #             self.ci.sendTo(self.OutgoingRequest, "ResReq")
-    #             self.asked = True
 
     # DO NOT LOCK, THE CALLER SHOULD LOCK
     def use_resource(self):
@@ -264,22 +203,23 @@ class Node:
             lines = [str(self.constants.DELTA*self.write_count)]
             print("No data was found in file, writing: ", lines[0])
         cur_num = int(lines[0]) + self.constants.DELTA
-        n_updates = self.write_count
+        n_updates = self.write_count 
         if len(lines) > 1:
             print("defaulting n_updates: ", n_updates)
-            n_updates = int(lines[1]) + 1
-        to_be_written = str(cur_num) + '\n' + str(n_updates)
+            n_updates = int(lines[1])
         if n_updates < self.constants.TOTCOUNT:
+            n_updates = n_updates + 1
+            to_be_written = str(cur_num) + '\n' + str(n_updates)
             file = open(self.constants.DATAFILE, "w")
             file.write(to_be_written)
             file.close()
         else:
             # graceful exit
             print("Node ", self.pid, " is exiting")
-            print("Max number reached, sending token to", self.OutgoingToken, self.successor)
-            # send token to ccw neighbour
-            self.ci.sendTo(self.OutgoingToken, "TOKEN")
-            print("Node ", self.pid, " is exiting, sent token to", self.OutgoingToken, self.successor)  
+            print(f"Max number reached by {self.pid}, sending token to", self.successor)
+            # send token to successor
+            self.ch.sendTo(sender_pid=self.pid, receiver_pid=self.successor, message="TOKEN")
+            # kill the process
             os.kill(os.getpid(), signal.SIGKILL)
 
             #multiprocessing.current_process().terminate()
