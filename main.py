@@ -43,33 +43,33 @@ def main():
 
     processes = []
     NP = constants.NP
-    print(f"Note that thi PID's written to terminal differ from the ones in the log file. This is becase the log file PIDs are incremented by 1 to make them start from 1 instead of 0.")
+    # print(f"Note that thi PID's written to terminal differ from the ones in the log file. This is becase the log file PIDs are incremented by 1 to make them start from 1 instead of 0.")
     for i in range(NP):
         pid = os.fork()
         if pid == 0:
-            print(f"OS :: Child process {i} is started!")
+            # print(f"OS :: Child process {i} is started!")
             holder = False
             if i == 0:
                 holder=True
             node = Node(
                 pid=i, predecessor=((i - 1) % NP), successor=((i+1) % NP), constants=constants, holder=holder
             )
-            print(f"OS :: Calling node.run() for {i}")
+            # print(f"OS :: Calling node.run() for {i}")
             node.run()
-            print(f"OS :: Child process {i} is finished!")
+            # print(f"OS :: Child process {i} is finished!")
         else:
             processes.append(pid)
 
     while processes:
-        print(f"OS :: Waiting for child process {processes[0]}")
+        # print(f"OS :: Waiting for child process {processes[0]}")
         pid, exit_code = os.wait()
         if pid > 0:
             processes.remove(pid)
-            print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
+            # print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
 
-    print(
-        "\n***************************************\n**** All child processes are done! ****\n***************************************"
-    )
+    # print(
+     #   "\n***************************************\n**** All child processes are done! ****\n***************************************"
+    # )
 
 main()
 
