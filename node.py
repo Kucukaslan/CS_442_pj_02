@@ -205,7 +205,6 @@ class Node:
         cur_num = int(lines[0]) + self.constants.DELTA
         n_updates = self.write_count 
         if len(lines) > 1:
-            print("defaulting n_updates: ", n_updates)
             n_updates = int(lines[1])
         if n_updates < self.constants.TOTCOUNT:
             n_updates = n_updates + 1
@@ -227,7 +226,7 @@ class Node:
         self.write_count += 1
         file = open(self.constants.LOGFILE, "a")
         elapsed_time = (time.monotonic_ns() / 1000000) - self.constants.START_TIME 
-        log_text = f"t={elapsed_time}, pid={self.pid}, ospid={self.ospid}, new={cur_num}, {n_updates}, count={self.write_count}\n"
+        log_text = f"t={elapsed_time}, pid={self.pid + 1}, ospid={self.ospid}, new={cur_num}, {n_updates}, count={self.write_count}\n"
         file.write(log_text)
         file.close()
         print(f"-- {self.pid} ---\n", to_be_written, "\n", log_text, "\n")
