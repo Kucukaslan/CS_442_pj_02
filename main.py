@@ -43,11 +43,11 @@ def main():
 
     processes = []
     NP = constants.NP
+    print(f"Note that thi PID's written to terminal differ from the ones in the log file. This is becase the log file PIDs are incremented by 1 to make them start from 1 instead of 0.")
     for i in range(NP):
         pid = os.fork()
         if pid == 0:
             print(f"OS :: Child process {i} is started!")
-            print(f"Note that thi PID's written to terminal differ from the ones in the log file. This is becase the log file PIDs are incremented by 1 to make them start from 1 instead of 0.")
             holder = False
             if i == 0:
                 holder=True

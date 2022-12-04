@@ -1,5 +1,4 @@
 import redis
-import random
 import pickle
 import os
 import time
@@ -11,13 +10,9 @@ class Channel:
         self.nBits     = nBits
         self.MAXPROC   = pow(2, nBits)
 
-    def join(self, pid, ospid, predecessorId, successorId):
-        members = self.channel.smembers('members')
-
+    def join(self, pid, ospid):
         self.pid = pid
         self.ospid = ospid
-        self.predecessorId = predecessorId
-        self.successorId = successorId
 
         self.channel.sadd('members', self.pid)
         self.bind(str(self.pid))
@@ -33,8 +28,8 @@ class Channel:
     def subgroup(self, subgroup):
         return [self.deserialize(pid) for pid in list(self.channel.smembers(subgroup))]
 
-    def sendTo(self, sender_pid, receiver_pid, message):
-        self.sendToHelper(sender_pid, receiver_pid, message)
+    def sendTo(self, receiver_pid, message):
+        self.sendToHelper(self.pid, receiver_pid, message)
 
     def sendToAll(self, message):
         caller = self.find_caller()
@@ -55,8 +50,8 @@ class Channel:
             message = self.deserialize(msg[1])
             return sender, message
 
-    def recvFrom(self, sender_pid, receiver_pid, timeout=0):
-        xchan = [self.serialize(f'{str(sender_pid)}-{str(receiver_pid)}')]
+    def recvFrom(self, sender_pid, timeout=0):
+        xchan = [self.serialize(f'{str(sender_pid)}-{str(self.pid)}')]
         msg = self.channel.blpop(xchan, timeout)
         if msg:
             sender = self.deserialize(msg[0]).split('-')[0]
