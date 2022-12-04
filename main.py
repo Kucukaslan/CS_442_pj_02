@@ -11,7 +11,7 @@ def main():
     """
     if len(sys.argv) != 7:
         print(f"Usage: python3 {os.path.basename(sys.argv[0])} <np> <datafile> <delta> <totcount> <logfile> <maxtime>")
-        print(f"Example:\n python3 {os.path.basename(sys.argv[0])} 5 DATAFILE 100 25 log.txt 1000")
+        print(f"Example:\n python3 {os.path.basename(sys.argv[0])} 5 DATAFILE 100 25 LOGFILE 1000")
 
         sys.exit(1)
 
@@ -44,7 +44,7 @@ def main():
     for i in range(NP):
         pid = os.fork()
         if pid == 0:
-            print(f"OS :: Child process {i} is started!")
+           # print(f"OS :: Child process {i} is started!")
             if i == 0:
                 node = Node(pid=i, cwNeighbourPid=((i + 1) % NP), 
                     ccwNeighbourPid=((i-1) % NP), constants=constants, holder=True
@@ -60,11 +60,11 @@ def main():
             processes.append(pid)
 
     while processes:
-        print(f"OS :: Waiting for child process {processes[0]}")
+        # print(f"OS :: Waiting for child process {processes[0]}")
         pid, exit_code = os.wait()
         if pid > 0:
             processes.remove(pid)
-            print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
+          #  print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
 
     print(
         "\n***************************************\n**** All child processes are done! ****\n***************************************"
