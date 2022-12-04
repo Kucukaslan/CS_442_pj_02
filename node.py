@@ -151,8 +151,10 @@ class Node:
                 self.use_resource()
                 self.hungry=False
                 self.using=False
+                print(f"{self.pid} used token, pending: {self.pending_requests}")
                 if self.pending_requests:
                     self.pending_requests = False
+                    print(f"{self.pid} will send token to: ",self.OutgoingToken, self.ccwNeighbourPid)
                     self.ci.sendTo(self.OutgoingToken, "TOKEN")
                     print("Token sent to: ",self.OutgoingToken, self.ccwNeighbourPid)
             elif not self.asked:
@@ -245,11 +247,10 @@ class Node:
 
     # DO NOT LOCK, THE CALLER SHOULD LOCK
     def use_resource(self):
-
         file = open(self.constants.DATAFILE, "r")
         lines = file.readlines()
         file.close()
-        if len(lines) == 0:
+        if len(lines) == 0 or not lines[0].isnumeric():
             lines = [str(self.constants.DELTA*self.write_count)]
             print("No data was found in file, writing: ", lines[0])
         cur_num = int(lines[0]) + self.constants.DELTA
