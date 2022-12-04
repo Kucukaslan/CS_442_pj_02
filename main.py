@@ -50,7 +50,7 @@ def main():
             if i == 0:
                 holder=True
             node = Node(
-                pid=i, cwNeighbourPid=((i + 1) % NP), ccwNeighbourPid=((i-1) % NP), constants=constants, holder=holder
+                pid=i, predecessor=((i - 1) % NP), successor=((i+1) % NP), constants=constants, holder=holder
             )
             print(f"OS :: Calling node.run() for {i}")
             node.run()
@@ -59,11 +59,11 @@ def main():
             processes.append(pid)
 
     while processes:
-        # print(f"OS :: Waiting for child process {processes[0]}")
+        print(f"OS :: Waiting for child process {processes[0]}")
         pid, exit_code = os.wait()
         if pid > 0:
             processes.remove(pid)
-          #  print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
+            print(f"OS :: Child process {pid} is terminated with exit code {exit_code}")
 
     print(
         "\n***************************************\n**** All child processes are done! ****\n***************************************"

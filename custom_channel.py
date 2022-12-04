@@ -5,7 +5,7 @@ import os
 import time
 
 class Channel:
-    def __init__(self, nBits=5, hostIP='localhost', portNo=6379):
+    def __init__(self, nBits=20, hostIP='localhost', portNo=6379):
         self.channel   = redis.StrictRedis(host=hostIP, port=portNo, db=0)
         self.osmembers = {} 
         self.nBits     = nBits
