@@ -83,10 +83,8 @@ class Node:
     
         while True:
             msg = self.ch.recvFrom(sender_pid=self.successor)
-            #if msg is not None:
-                # print(f"{self.successor}-{self.pid} The message:",msg)
-
-            self.handle_request() 
+            if msg is not None:
+                self.process_message(msg)
 
     def start_listening_tokens(self):
         """
@@ -95,13 +93,7 @@ class Node:
         while True:
             msg = self.ch.recvFrom(sender_pid=self.predecessor)
             if msg is not None:
-                # print(f"{self.predecessor}-{self.pid} The message:",msg)
-                if msg[1] == "TERMINATE":
-                    # print(f"{self.pid} ({self.ospid}) received TERMINATE from {self.predecessor}")
-                    self.ch.sendTo(receiver_pid=self.successor, message="TERMINATE")
-                    os.kill(self.ospid, signal.SIGTERM)
-                else:
-                    self.handle_token()
+                self.process_message(msg)
                 
                 
     def start_sleeping(self):
@@ -208,7 +200,7 @@ class Node:
         else:
             # graceful exit
             # print("Node ", self.pid, " is exiting")
-            # print(f"Max number reached by {self.pid}, terminating and sending token to", self.successor)
+            print(f"Max number reached by {self.pid}, terminating.", self.successor)
             # send token to successor
             self.holder = False
             self.ch.sendTo( receiver_pid=self.successor, message="TERMINATE")
@@ -224,3 +216,17 @@ class Node:
         file.write(log_text)
         file.close()
         # print(f"-- {self.pid} ---\n", to_be_written, "\n", log_text, "\n")
+
+    def process_message(self, msg):
+        """
+        Process the message
+        """
+        if msg[1] == "TERMINATE":
+            self.ch.sendTo(receiver_pid=self.successor, message="TERMINATE")
+            os.kill(self.ospid, signal.SIGTERM)
+        elif msg[1] == "TOKEN":
+            self.handle_token()
+        elif msg[1] == "REQUEST":
+            self.handle_request()
+        else:
+            print(f"Unknown message: {msg}")
