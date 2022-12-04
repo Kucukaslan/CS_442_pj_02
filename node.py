@@ -1,5 +1,6 @@
 import os
 import sys
+from  threading import Lock, Thread #.Lock as Lock
 import custom_channel as channel
 import random
 from constants import Constants
@@ -24,45 +25,48 @@ class Node:
     """
 
     def __init__(
-        self, pid, cwNeighbourPid, ccwNeighbourPid, constants, ospid=os.getpid(), holder=False
+        self, pid, cwNeighbourPid, ccwNeighbourPid, constants, holder=False
     ):
         # log parameters
-        print(f"pid={pid}, cwNeighbourPid={cwNeighbourPid}, ccwNeighbourPid={ccwNeighbourPid}, ospid={ospid}, holder={holder}")
+        print(f"pid={pid}, cwNeighbourPid={cwNeighbourPid}, ccwNeighbourPid={ccwNeighbourPid}, ospid={os.getpid()}, holder={holder}")
 
-        #random.seed(pid)
-        self.pid = pid
-        self.ospid = ospid
-        self.hungry = False
-        self.using = False
-        self.holder = holder 
-        self.asked = False
-        self.pending_requests = False
+        random.seed(pid)
+        self.lock = Lock()
 
-        self.ci = channel.Channel()
-        self.cwNeighbourPid = cwNeighbourPid
-        self.ccwNeighbourPid = ccwNeighbourPid
-        self.constants: Constants = constants
-        self.write_count = 0
-        self.start_time = time.time()
+        with self.lock:
+            self.pid = pid
+            self.ospid = os.getpid()
+            self.hungry = False
+            self.using = False
+            self.holder = holder 
+            self.asked = False
+            self.pending_requests = False
+
+            self.ci = channel.Channel()
+            self.cwNeighbourPid = cwNeighbourPid
+            self.ccwNeighbourPid = ccwNeighbourPid
+            self.constants: Constants = constants
+            self.write_count = 0
+            self.start_time = time.time()
 
 
         self.Incoming = self.ci.join(f"{str(self.pid)}-inc")
-        print("joined incoming {" + str(self.Incoming) + "} pid {" + str(self.pid) + "}")
+#        print("joined incoming {" + str(self.Incoming) + "} pid {" + str(self.pid) + "}")
 
         self.OutgoingToken = []
         while len(self.OutgoingToken) == 0:
-            print("will try to join outgoing token")
+   #         print("will try to join outgoing token")
             self.OutgoingToken = self.ci.subgroup(f"{str(ccwNeighbourPid)}-inc")
-            print(f"len of outgoing token is {len(self.OutgoingToken)}, type is {type(self.OutgoingToken)} {str(ccwNeighbourPid)}-inc")
+  #          print(f"len of outgoing token is {len(self.OutgoingToken)}, type is {type(self.OutgoingToken)} {str(ccwNeighbourPid)}-inc")
             time.sleep(1)
-        print("joined outgoing token")
+ #       print("joined outgoing token")
 
         self.OutgoingRequest = []
         while len(self.OutgoingRequest) == 0:
             self.OutgoingRequest = self.ci.subgroup(f"{str(cwNeighbourPid)}-inc")
         
-        print(
-            " ".join(
+        
+        msg =    " ".join(
                 [
                     "\nA node is initialized with:\n",
                     "cwNeighbourPid",
@@ -85,8 +89,9 @@ class Node:
                     "\n",
                 ]
             )
-        )
+        print(msg)
 
+    
         # todo delete debug code
         """ 
         if True:
@@ -112,39 +117,49 @@ class Node:
         """
 
     def set_hungry(self):
-        self.hungry = True
-        if self.holder is not self:  # we don’t have token
-            if not self.asked:  # if not send req already
-                # todo send request to right(CCW dir)
-                self.ci.sendTo(self.OutgoingRequest, "ResReq")
-                self.asked = True
-            # todo wait until (using == True)
-        else:  # // we have token
-            self.using = True
-            # todo update the DATAFILE and log it
-            self.use_resource()
-            self.hungry = False
-            # todo send token to right(CW dir)
+        with self.lock:
+            self.hungry = True
+        
+            if self.holder :  # // we have token
+                self.using = True
+                self.use_resource()
+                self.release_resource()
+                self.hungry = False
+                self.send_token()
+            else:  # we don’t have token
+                if not self.asked:  # if not send req already
+                    self.ci.sendTo(self.OutgoingRequest, "ResReq")
+                    self.asked = True
+                # todo wait until (using == True)
 
+    # DO NOT LOCK THE CALLER SHOULD LOCK
     def send_token(self):
-        self.holder = self.ccwNeighbourPid
-        self.ci.sendTo(self.OutgoingToken, "Token")
-        pass
+        with self.lock:     
+            self.holder = False
+            self.ci.sendTo(self.OutgoingToken, "Token")
+            pass
+
 
     def request_token(self):
-        if (self.holder is self) and (not self.using):
-            0  # todo  send token (CW) // we send token
+        """
+        When a request is received
+        """
+        if (self.holder is True) and (not self.using):
+            self.send_token()
         else:  # (self.holder != self) or (self.using)
             self.pending_requests = True
-            if (self.holder != self) and (not self.asked):
-                # todo send request (CCW dir)
+            if (not self.holder ) and (not self.asked):
+                self.ci.sendTo(self.OutgoingRequest, "ResReq")
                 self.asked = True
 
+    # DO NOT LOCK, THE CALLER SHOULD LOCK
     def use_resource(self):
         file = open(self.constants.DATAFILE, "r+")
         lines = file.readlines()
         cur_num = int(lines[0]) + self.constants.DELTA
-        n_updates = int(lines[1]) + 1
+        n_updates = 1
+        if len(lines) > 1:
+            n_updates = int(lines[1]) + 1
         to_be_written = str(cur_num) + '\n' + str(n_updates)
         file.write(to_be_written)
         file.close()
@@ -156,64 +171,62 @@ class Node:
         file.close()
 
     def receive_token(self):
-        self.asked = False
-        if self.hungry:  # if we asked
-            self.using = True
-            self.hungry = False
-            self.use_resource()
-        else:  # pass token; left asked
-            self.send_token()
-            self.pending_requests = False
+        with self.lock:
+            self.asked = False
+            if self.hungry:  # if we asked
+                self.using = True
+                self.hungry = False
+                self.use_resource()
+                self.release_resource()
+            else:  # pass token; left asked
+                self.pending_requests = False
+                self.send_token()
+
 
     def release_resource(self):
         self.using = False
         if self.pending_requests:
-            # todo send token (CW)
+            self.send_token()
+            self.holder=False
             self.pending_requests = False
         else:
-            self.holder = self  # we have token
-        self.sleep()
+            self.holder = True  # we have token
 
     def sleep(self):
         sleep_time = random.randint(0, self.constants.MAXTIME)
-        time.sleep(sleep_time)
+        print(f"pid {self.pid} will sleep for {sleep_time} seconds")
+        time.sleep(sleep_time/1000)
+        print(f"pid {self.pid} started requesting token")
+        self.set_hungry()
 
     def run(self):
-        # exit after 10 seconds
-        self.use_resource()
-        time.sleep(10)
-        sys.exit(0) 
-
-        self.ci.sendTo(
-            self.OutgoingRequest,
-            f"from {self.Incoming}({self.pid}) to {self.OutgoingRequest[0]}({self.cwNeighbourPid}) ResReq",
-        )
-        self.ci.sendTo(
-            self.OutgoingToken,
-            f"from {self.Incoming}({self.pid}) to {self.OutgoingToken[0]}({self.ccwNeighbourPid}) Token",
-        )
-
+        thread = Thread(target = self.sleep)
+        thread.start()
+    
         while True:
             msg = self.ci.recvFromAny()
             sender_pid = msg[0]
             msg = msg[1:]
             # print(" ".join(["\n", str(sender_pid), "\n", str(msg), "\n"]))
-            if sender_pid == self.OutgoingRequest[0]:
+            if msg[0] == "Token":
                 # Token came in
                 out = f"""Check Token? channelid(pid)
                       from {sender_pid}({self.cwNeighbourPid})
-                      to   {self.Incoming}({self.pid})
+                      to [me]   {self.Incoming}({self.pid})
                       msg  {msg[0]}
                       """
                 print(out)
-
-                # print(" ".join(["\nToken?", str(sender_pid), "\n", str(msg), "\n"]))
-            elif sender_pid == self.OutgoingToken[0]:
-                # Resource request came in
+            elif msg[0] == "ResReq":
+                # ResReq came in
                 out = f"""Check ResReq? channelid(pid)
                       from {sender_pid}({self.ccwNeighbourPid})
-                      to   {self.Incoming}({self.pid})
+                      to [me]   {self.Incoming}({self.pid})
                       msg  {msg[0]}
                       """
                 print(out)
+            else:
+                print("Error: Unknown message type")
+                print(msg)
+                
+        thread.join()
         return
